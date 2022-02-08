@@ -17,6 +17,7 @@ import matplotlib
 import numpy as np
 import soundfile as sf
 import torch
+import time
 import yaml
 
 from tensorboardX import SummaryWriter
@@ -88,9 +89,9 @@ class Trainer(object):
 
     def run(self):
         """Run training."""
-        self.tqdm = tqdm(
-            initial=self.steps, total=self.config["train_max_steps"], desc="[train]"
-        )
+        # self.tqdm = tqdm(
+        #     initial=self.steps, total=self.config["train_max_steps"], desc="[train]"
+        # )
         while True:
             # train one epoch
             self._train_epoch()
@@ -99,7 +100,7 @@ class Trainer(object):
             if self.finish_train:
                 break
 
-        self.tqdm.close()
+        # self.tqdm.close()
         logging.info("Finished training.")
 
     def save_checkpoint(self, checkpoint_path):
@@ -292,14 +293,21 @@ class Trainer(object):
 
         # update counts
         self.steps += 1
-        self.tqdm.update(1)
+        # self.tqdm.update(1)
         self._check_train_finish()
 
     def _train_epoch(self):
         """Train model one epoch."""
         for train_steps_per_epoch, batch in enumerate(self.data_loader["train"], 1):
             # train one step
+            step_start_time = time.time()
             self._train_step(batch)
+            batch_time = time.time() - step_start_time
+            avg_batch_cost = batch_time
+            msg = "iter: {}/{}, ".format(self.steps, self.config["train_max_steps"])
+            msg += "avg_batch_cost: {:.5f} sec, ".format(avg_batch_cost)
+            msg += "avg_ips: {:.5f} sequences/sec".format(len(batch[1]) / avg_batch_cost)
+            logging.info(msg)
 
             # check interval
             if self.config["rank"] == 0:
@@ -411,7 +419,7 @@ class Trainer(object):
 
         # calculate loss for each batch
         for eval_steps_per_epoch, batch in enumerate(
-            tqdm(self.data_loader["dev"], desc="[eval]"), 1
+            self.data_loader["dev"], 1
         ):
             # eval one step
             self._eval_step(batch)
@@ -627,6 +635,7 @@ class Collater(object):
 
 def main():
     """Run training process."""
+    
     parser = argparse.ArgumentParser(
         description="Train Parallel WaveGAN (See detail in parallel_wavegan/bin/train.py)."
     )
@@ -723,6 +732,14 @@ def main():
         type=int,
         help="rank for distributed training. no need to explictly specify.",
     )
+
+    benchmark_group = parser.add_argument_group(
+        'benchmark', 'arguments related to benchmark.')
+    benchmark_group.add_argument(
+        "--batch-size", type=int, default=8, help="batch size.")
+    benchmark_group.add_argument(
+        "--train-max-steps", type=int, default=400000, help="train max steps.")
+
     args = parser.parse_args()
 
     args.distributed = False
@@ -783,7 +800,8 @@ def main():
 
     # load and save config
     with open(args.config) as f:
-        config = yaml.load(f, Loader=yaml.Loader)
+        config = yaml.load(f, Loader=yaml.Loader)  
+    
     config.update(vars(args))
     config["version"] = parallel_wavegan.__version__  # add version info
     with open(os.path.join(args.outdir, "config.yml"), "w") as f:

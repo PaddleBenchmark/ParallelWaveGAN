@@ -12,6 +12,8 @@ stop_stage=100 # stage to stop
 verbose=1      # verbosity level (lower is less info)
 n_gpus=1       # number of gpus in training
 n_jobs=16      # number of parallel jobs in feature extraction
+batch_size=5
+max_iter=200
 
 # NOTE(kan-bayashi): renamed to conf to avoid conflict in parse_options.sh
 conf=conf/parallel_wavegan.v1.yaml
@@ -124,7 +126,7 @@ if [ "${stage}" -le 2 ] && [ "${stop_stage}" -ge 2 ]; then
     else
         train="parallel-wavegan-train"
     fi
-    echo "Training start. See the progress via ${expdir}/train.log."
+   
     ${cuda_cmd} --gpu "${n_gpus}" "${expdir}/train.log" \
         ${train} \
             --config "${conf}" \
@@ -132,7 +134,9 @@ if [ "${stage}" -le 2 ] && [ "${stop_stage}" -ge 2 ]; then
             --dev-dumpdir "${dumpdir}/${dev_set}/norm" \
             --outdir "${expdir}" \
             --resume "${resume}" \
-            --verbose "${verbose}"
+            --verbose "${verbose}" \
+            --batch-size ${batch_size} \
+            --train-max-steps ${max_iter}
     echo "Successfully finished training."
 fi
 
