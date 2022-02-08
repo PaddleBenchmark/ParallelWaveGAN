@@ -18,7 +18,7 @@ cwd=$(pwd)
 if [ ! -e "${download_dir}/CSMSC" ]; then
     mkdir -p "${download_dir}"
     cd "${download_dir}"
-    wget https://paddlespeech.bj.bcebos.com/datasets/BZNSYP.rar
+    wget https://weixinxcxdb.oss-cn-beijing.aliyuncs.com/gwYinPinKu/BZNSYP.rar
     mkdir CSMSC && cd CSMSC && unrar x ../BZNSYP.rar
     # convert new line code
     find ./PhoneLabeling -name "*.interval" | while read -r line; do
